@@ -1,30 +1,41 @@
 import model_getter
-from model_getter import time_synchronized,non_max_suppression,Path,scale_coords,xyxy2xywh,plot_one_box
+from model_getter import time_synchronized,non_max_suppression,Path,scale_coords,xyxy2xywh,plot_one_box,letterbox
 import torch
-
+import numpy as np
+import cv2
 model,names,colors,device,half = model_getter.init_load_model(weights='../weight/best_231.pt',source='/home/data/brand/val/images/0.jpg')
 imgsz = 640
 stride = int(model.stride.max())  # model stride
 imgsz = model_getter.check_img_size(imgsz, s=stride)  # check img_size
-dataset = model_getter.LoadImages('/home/data/brand/val/images/0.jpg', img_size=imgsz, stride=stride,)
+# dataset = model_getter.LoadImages('/home/data/brand/val/images/0.jpg', img_size=imgsz, stride=stride,)
         # Inference
+img0 = cv2.imread('/home/data/brand/val/images/0.jpg')  # BGR
+# assert img0 is not None, 'Image Not Found ' + path
+            #print(f'image {self.count}/{self.nf} {path}: ', end='')
 
-for path, img, im0s, vid_cap in dataset:
-    img = torch.from_numpy(img).to(device)
-    img = img.half() if half else img.float()  # uint8 to fp16/32
-    img /= 255.0  # 0 - 255 to 0.0 - 1.0
-    if img.ndimension() == 3:
-        img = img.unsqueeze(0)
-    t1 = time_synchronized()
-    augment = True
-    with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
-        pred = model(img, augment=augment)[0]
-    t2 = time_synchronized()
+        # Padded resize
+img = letterbox(img0, imgsz, stride=stride)[0]
+
+        # Convert
+img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+img = np.ascontiguousarray(img)
+
+# for path, img, im0s, vid_cap in dataset:
+img = torch.from_numpy(img).to(device)
+img = img.half() if half else img.float()  # uint8 to fp16/32
+img /= 255.0  # 0 - 255 to 0.0 - 1.0
+if img.ndimension() == 3:
+    img = img.unsqueeze(0)
+t1 = time_synchronized()
+augment = True
+with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
+    pred = model(img, augment=augment)[0]
+t2 = time_synchronized()
     # print('is print something here?')
     # Apply NMS
-    conf_thres,iou_thres,classes,agnostic_nms = 0.25 ,0.45 ,None ,False
-    pred = non_max_suppression(pred, conf_thres, iou_thres, classes=classes, agnostic=agnostic_nms)
-    t3 = time_synchronized()
+conf_thres,iou_thres,classes,agnostic_nms = 0.25 ,0.45 ,None ,False
+pred = non_max_suppression(pred, conf_thres, iou_thres, classes=classes, agnostic=agnostic_nms)
+t3 = time_synchronized()
 
 # print(len(pred)) # Example Result [tensor([[398.00000, 220.37500, 432.00000, 245.37500,   0.96191,  23.00000]], device='cuda:0')]
 
@@ -35,7 +46,7 @@ assert len(pred) == 1, 'Detected more than one logo'
 
 for i, det in enumerate(pred):  # detections per image
     # print(len(pred))
-    p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
+    s, im0,  =  '', img0
 
     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
     if len(det):
