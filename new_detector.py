@@ -28,13 +28,14 @@ for path, img, im0s, vid_cap in dataset:
 
 # print(len(pred)) # Example Result [tensor([[398.00000, 220.37500, 432.00000, 245.37500,   0.96191,  23.00000]], device='cuda:0')]
 
-# We might need to perform argmax at dim 4 or 0.96191 incase pred > 1
+# # We might need to perform argmax at dim 1 idx 4 or 0.96191 incase pred > 1
+# Currently assert when pred > 1
+
+assert len(pred) == 1, 'Detected more than one logo'
 
 for i, det in enumerate(pred):  # detections per image
     # print(len(pred))
     p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
-
-    # p = Path(p)  # to Path
 
     gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
     if len(det):
@@ -61,6 +62,9 @@ for i, det in enumerate(pred):  # detections per image
 
     # Print time (inference + NMS)
     print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+
     text_logo = s.split(' ')[1]
+
     pred_class,pred_x,pred_y,pred_w,pred_h, pred_confident = line
-    print(pred_confident.cpu().numpy(),' with brand', text_logo)
+
+    print(pred_confident.cpu().numpy(),' with brand', text_logo) # send img with im0
